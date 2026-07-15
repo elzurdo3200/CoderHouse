@@ -1,0 +1,84 @@
+# Credenciales y variables de entorno
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+credentials.json
+secrets.json
+
+# Archivos n8n
+.n8n/
+n8n-data/
+.n8n-credentials
+
+# API Keys y Tokens (NUNCA subir)
+*_api_key*
+*_token*
+*_secret*
+*.apikey
+*.token
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Node modules (si aplica)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Archivos temporales
+tmp/
+temp/
+*.tmp
+
+# Airtable exports (si contienen datos sensibles)
+*_backup.csv
+*_export.json
+
+# ==========================================
+# EXCEPCIÓN: Permitir evidencias profesionales
+# ==========================================
+# Incluir TODOS los archivos en carpeta evidencias/
+# (son screenshots/videos de demostración SIN datos sensibles)
+!evidencias/
+!evidencias/*.png
+!evidencias/*.mp4
+!evidencias/*.mov
+!evidencias/*.avi
+
+# Screenshots con datos sensibles (documentar manualmente)
+# evidencias/*_with_secrets.png
+
+# Base de datos locales
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos de test con datos reales
+tests/*_real_data*
+tests/fixtures/*credentials*
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# OS
+.DS_Store
+desktop.ini
+.Spotlight-V100
+.Trashes

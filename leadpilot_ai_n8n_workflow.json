@@ -1,0 +1,743 @@
+{
+  "name": "LeadPilot AI - Ecosistema de Automatización IA Autónomo",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "timezone": "America/Argentina/Buenos_Aires",
+    "concurrency": {
+      "max": 1
+    }
+  },
+  "tags": [
+    {
+      "name": "TP Final"
+    },
+    {
+      "name": "AI Automation"
+    },
+    {
+      "name": "Leads Management"
+    },
+    {
+      "name": "Production"
+    }
+  ],
+  "nodes": [
+    {
+      "parameters": {
+        "filters": {
+          "q": "subject:(Lead OR Consulta OR Presupuesto) newer_than:1d"
+        },
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        }
+      },
+      "id": "gmail-trigger-node",
+      "name": "01 Trigger Gmail - Nuevo lead desde ahora",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1040,
+        80
+      ],
+      "credentials": {
+        "gmailOAuth2": "Gmail_Account"
+      },
+      "notes": "Trigger inteligente con filtros para evitar polling masivo. Busca emails con palabras clave en últimas 24h"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "lead_email",
+              "value": "={{$json.from.value[0].address}}",
+              "type": "string"
+            },
+            {
+              "name": "lead_nombre",
+              "value": "={{$json.from.value[0].name || 'Contacto'}}",
+              "type": "string"
+            },
+            {
+              "name": "asunto",
+              "value": "={{$json.subject}}",
+              "type": "string"
+            },
+            {
+              "name": "mensaje",
+              "value": "={{$json.textPlain || $json.snippet || ''}}",
+              "type": "string"
+            },
+            {
+              "name": "thread_id",
+              "value": "={{$json.threadId}}",
+              "type": "string"
+            },
+            {
+              "name": "message_id",
+              "value": "={{$json.id}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "normalize-vars-node",
+      "name": "02 Normalizar variables dinámicas",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        -820,
+        80
+      ],
+      "notes": "Extrae variables de Gmail: email, nombre, asunto, mensaje, thread_id. Sin hardcoding."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "comparator": ">",
+              "value1": "={{$json.mensaje.length}}",
+              "value2": 10
+            }
+          ],
+          "string": [
+            {
+              "comparator": "regex",
+              "value1": "={{$json.lead_email}}",
+              "value2": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+            }
+          ]
+        }
+      },
+      "id": "validate-node",
+      "name": "03 Validar datos - Filtro anti-spam",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        80
+      ],
+      "notes": "IF: email válido Y mensaje > 10 caracteres. Sino → Error Handling"
+    },
+    {
+      "parameters": {
+        "authentication": "airtableTokenApi",
+        "resource": "record",
+        "operation": "search",
+        "base": {
+          "mode": "id",
+          "value": "={{$env.AIRTABLE_BASE_ID}}"
+        },
+        "table": {
+          "mode": "id",
+          "value": "{{$env.AIRTABLE_TABLE_LEADS}}"
+        },
+        "where": [
+          {
+            "field": "Email",
+            "condition": "is",
+            "value": "={{$json.lead_email}}"
+          }
+        ]
+      },
+      "id": "airtable-search-node",
+      "name": "04 Buscar en Airtable - ¿Duplicado?",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        80
+      ],
+      "notes": "Busca si el lead ya existe para evitar duplicados. Si existe, actualiza. Si no, crea."
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "chat",
+        "operation": "create",
+        "model": "gpt-3.5-turbo",
+        "messages": {
+          "messageUi": [
+            {
+              "role": "system",
+              "content": "Sos un analista comercial B2B. Clasificas leads, detectas datos faltantes y redactas respuestas. Devuelves SOLO JSON válido.",
+              "name": "System Message"
+            },
+            {
+              "role": "user",
+              "content": "Lead: {{$json.lead_nombre}} <{{$json.lead_email}}>\nEmpresa: {{$json.empresa || 'No especificada'}}\nAsunto: {{$json.asunto}}\nMensaje: {{$json.mensaje}}\n\nResponde SOLO JSON con campos: categoria, score_0_100, prioridad, datos_faltantes[], resumen, respuesta_sugerida, requiere_aprobacion",
+              "name": "User Message"
+            }
+          ]
+        },
+        "options": {
+          "max_tokens": 500,
+          "temperature": 0.7
+        }
+      },
+      "id": "openai-classify-node",
+      "name": "05 OpenAI - Clasificar Lead (IA Estructurada)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        80
+      ],
+      "credentials": {
+        "openAiApi": "OpenAI_API"
+      },
+      "continueOnFail": true,
+      "onError": "continueRegardless",
+      "notes": "Motor IA con prompt estructurado. continueOnFail=true para Error Handling API. Max tokens=500 para optimizar costos"
+    },
+    {
+      "parameters": {
+        "errorMessage": "Error en API OpenAI"
+      },
+      "id": "error-handler-api-node",
+      "name": "05b Error Handling - API OpenAI falló",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ],
+      "notes": "ERROR HANDLING ROUTE 2: Captura fallos de OpenAI y registra en tabla Errores"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "ia_response_json",
+              "value": "={{JSON.parse($json.message.content)}}",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "parse-openai-node",
+      "name": "06 Parsear respuesta OpenAI a JSON",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        0,
+        80
+      ],
+      "notes": "Convierte string JSON de OpenAI a objeto para acceso a campos"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "comparator": ">=",
+              "value1": "={{$json.ia_response_json.score_0_100}}",
+              "value2": 70
+            }
+          ]
+        }
+      },
+      "id": "score-filter-node",
+      "name": "07 IF - Score >= 70? Activa HITL",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        200,
+        80
+      ],
+      "notes": "Filtro de prioridad. Score < 70 termina. Score >= 70 activa aprobación humana en Slack"
+    },
+    {
+      "parameters": {
+        "authentication": "airtableTokenApi",
+        "resource": "record",
+        "operation": "update",
+        "base": {
+          "mode": "id",
+          "value": "={{$env.AIRTABLE_BASE_ID}}"
+        },
+        "table": {
+          "mode": "id",
+          "value": "{{$env.AIRTABLE_TABLE_LEADS}}"
+        },
+        "id": "={{$node['04 Buscar en Airtable'].json.records[0].id}}",
+        "update": {
+          "Estado": "Procesado por IA",
+          "Score IA": "={{$json.ia_response_json.score_0_100}}",
+          "Categoría": "={{$json.ia_response_json.categoria}}",
+          "Prioridad": "={{$json.ia_response_json.prioridad}}",
+          "Respuesta Sugerida": "={{$json.ia_response_json.respuesta_sugerida}}",
+          "Datos Faltantes": "={{JSON.stringify($json.ia_response_json.datos_faltantes)}}"
+        }
+      },
+      "id": "airtable-update-ia-node",
+      "name": "08 Registrar resultado IA en Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        400,
+        80
+      ],
+      "notes": "Guarda score, categoría, respuesta sugerida en tabla Leads"
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "method": "POST",
+        "url": "{{$env.SLACK_WEBHOOK}}",
+        "headerParameters": {
+          "parameters": []
+        },
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "📊 NUEVO LEAD VIP - {{$json.lead_nombre}} | Score: {{$json.ia_response_json.score_0_100}}/100"
+            },
+            {
+              "name": "blocks",
+              "value": "[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*Lead:* {{$json.lead_nombre}}\\n*Email:* {{$json.lead_email}}\\n*Resumen:* {{$json.ia_response_json.resumen}}\\n*Respuesta Sugerida:*\\n```{{$json.ia_response_json.respuesta_sugerida}}```\"}},{\"type\":\"actions\",\"elements\":[{\"type\":\"button\",\"text\":{\"type\":\"plain_text\",\"text\":\"✅ Aprobar\"},\"value\":\"approved\",\"action_id\":\"approve_lead\"},{\"type\":\"button\",\"text\":{\"type\":\"plain_text\",\"text\":\"❌ Rechazar\"},\"value\":\"rejected\",\"action_id\":\"reject_lead\"}]}]"
+            },
+            {
+              "name": "thread_ts",
+              "value": "{{$json.thread_id}}"
+            }
+          ]
+        }
+      },
+      "id": "slack-hitl-node",
+      "name": "09 Enviar a Slack - HITL (Aprobación Humana)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        600,
+        80
+      ],
+      "notes": "Notifica a aprobador en Slack con botones Aprobar/Rechazar. Usa Thread ID para agrupar en hilo"
+    },
+    {
+      "parameters": {
+        "waitForWebhookData": true,
+        "webhookUrl": "{{$n8n.workflow.url}}"
+      },
+      "id": "wait-webhook-node",
+      "name": "10 Esperar decisión humana - Wait for Webhook",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        800,
+        80
+      ],
+      "notes": "Pausa el flujo hasta que humano responda desde Slack. Evita contacto automático."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "comparator": "equals",
+              "value1": "={{$json.decision}}",
+              "value2": "approved"
+            }
+          ]
+        }
+      },
+      "id": "decision-filter-node",
+      "name": "11 IF - ¿Aprobado por humano?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        80
+      ],
+      "notes": "Si rechazado → Registrar rechazo. Si aprobado → Enviar email al cliente"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "send",
+        "to": "={{$json.lead_email}}",
+        "subject": "Re: {{$json.asunto}}",
+        "bodyType": "html",
+        "body": "={{$json.ia_response_json.respuesta_sugerida}}",
+        "cc": "{{$env.APPROVER_EMAIL}}",
+        "inThreadOf": "={{$json.thread_id}}"
+      },
+      "id": "gmail-send-node",
+      "name": "12 Enviar Email al cliente - En Thread ID",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        80
+      ],
+      "credentials": {
+        "gmailOAuth2": "Gmail_Account"
+      },
+      "notes": "Envía respuesta generada por IA al cliente, manteniendo el hilo original (Thread ID)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "estado_final",
+              "value": "Contactado",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "finalize-approval-node",
+      "name": "13 Registrar estado - Contactado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        80
+      ],
+      "notes": "Prepara actualización final en Airtable"
+    },
+    {
+      "parameters": {
+        "authentication": "airtableTokenApi",
+        "resource": "record",
+        "operation": "update",
+        "base": {
+          "mode": "id",
+          "value": "={{$env.AIRTABLE_BASE_ID}}"
+        },
+        "table": {
+          "mode": "id",
+          "value": "{{$env.AIRTABLE_TABLE_LEADS}}"
+        },
+        "id": "={{$node['04 Buscar en Airtable'].json.records[0].id}}",
+        "update": {
+          "Estado": "Contactado",
+          "Decision Humana": "Aprobado"
+        }
+      },
+      "id": "airtable-finalize-node",
+      "name": "14 Actualizar Airtable - Estado final",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        80
+      ],
+      "notes": "Marca lead como contactado. Cierre de flujo exitoso."
+    },
+    {
+      "parameters": {
+        "authentication": "airtableTokenApi",
+        "resource": "record",
+        "operation": "update",
+        "base": {
+          "mode": "id",
+          "value": "={{$env.AIRTABLE_BASE_ID}}"
+        },
+        "table": {
+          "mode": "id",
+          "value": "{{$env.AIRTABLE_TABLE_LEADS}}"
+        },
+        "id": "={{$node['04 Buscar en Airtable'].json.records[0].id}}",
+        "update": {
+          "Estado": "Rechazado",
+          "Decision Humana": "Rechazado"
+        }
+      },
+      "id": "airtable-reject-node",
+      "name": "15 Registrar rechazo - NO contactar",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        -200
+      ],
+      "notes": "Si humano rechaza, registra en Airtable. NO envía email al cliente."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "error_data",
+              "value": "={{$json}}",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "error-capture-node",
+      "name": "16a Capturar error de validación",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -200
+      ],
+      "notes": "ERROR HANDLING ROUTE 1: Captura errores de datos faltantes"
+    },
+    {
+      "parameters": {
+        "authentication": "airtableTokenApi",
+        "resource": "record",
+        "operation": "create",
+        "base": {
+          "mode": "id",
+          "value": "={{$env.AIRTABLE_BASE_ID}}"
+        },
+        "table": {
+          "mode": "id",
+          "value": "{{$env.AIRTABLE_TABLE_ERRORS}}"
+        },
+        "fields": {
+          "Origen": "03 Validar Datos",
+          "Tipo Error": "Datos Faltantes",
+          "Detalle": "Email inválido o mensaje vacío",
+          "Lead Email": "={{$json.lead_email || 'No disponible'}}",
+          "Estado": "Pendiente corrección",
+          "Gravedad": "Alta",
+          "Timestamp": "={{new Date().toISOString()}}"
+        }
+      },
+      "id": "airtable-error-log-node",
+      "name": "16b Registrar en tabla Errores",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -200
+      ],
+      "notes": "Guarda error en tabla Errores para auditoría y análisis posterior"
+    },
+    {
+      "parameters": {
+        "authentication": "airtableTokenApi",
+        "resource": "record",
+        "operation": "create",
+        "base": {
+          "mode": "id",
+          "value": "={{$env.AIRTABLE_BASE_ID}}"
+        },
+        "table": {
+          "mode": "id",
+          "value": "{{$env.AIRTABLE_TABLE_ERRORS}}"
+        },
+        "fields": {
+          "Origen": "05 OpenAI - Clasificar Lead",
+          "Tipo Error": "API OpenAI",
+          "Detalle": "Fallo en llamada a OpenAI API: {{$json.message || 'Sin detalles'}}",
+          "Lead Email": "={{$json.lead_email}}",
+          "Estado": "Pendiente corrección",
+          "Gravedad": "Crítica",
+          "Timestamp": "={{new Date().toISOString()}}",
+          "Stack Trace": "={{JSON.stringify($json)}}"
+        }
+      },
+      "id": "airtable-error-api-node",
+      "name": "17 Registrar fallo API IA en Errores",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        200,
+        200
+      ],
+      "notes": "Registra fallos de OpenAI para recuperación y debugging"
+    }
+  ],
+  "connections": {
+    "01 Trigger Gmail - Nuevo lead desde ahora": {
+      "main": [
+        [
+          {
+            "node": "02 Normalizar variables dinámicas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 Normalizar variables dinámicas": {
+      "main": [
+        [
+          {
+            "node": "03 Validar datos - Filtro anti-spam",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 Validar datos - Filtro anti-spam": {
+      "main": [
+        [
+          {
+            "node": "04 Buscar en Airtable - ¿Duplicado?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "16a Capturar error de validación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 Buscar en Airtable - ¿Duplicado?": {
+      "main": [
+        [
+          {
+            "node": "05 OpenAI - Clasificar Lead (IA Estructurada)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05 OpenAI - Clasificar Lead (IA Estructurada)": {
+      "main": [
+        [
+          {
+            "node": "06 Parsear respuesta OpenAI a JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "17 Registrar fallo API IA en Errores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06 Parsear respuesta OpenAI a JSON": {
+      "main": [
+        [
+          {
+            "node": "08 Registrar resultado IA en Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "07 IF - Score >= 70? Activa HITL": {
+      "main": [
+        [
+          {
+            "node": "09 Enviar a Slack - HITL (Aprobación Humana)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "08 Registrar resultado IA en Airtable": {
+      "main": [
+        [
+          {
+            "node": "07 IF - Score >= 70? Activa HITL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09 Enviar a Slack - HITL (Aprobación Humana)": {
+      "main": [
+        [
+          {
+            "node": "10 Esperar decisión humana - Wait for Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10 Esperar decisión humana - Wait for Webhook": {
+      "main": [
+        [
+          {
+            "node": "11 IF - ¿Aprobado por humano?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "11 IF - ¿Aprobado por humano?": {
+      "main": [
+        [
+          {
+            "node": "12 Enviar Email al cliente - En Thread ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "15 Registrar rechazo - NO contactar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12 Enviar Email al cliente - En Thread ID": {
+      "main": [
+        [
+          {
+            "node": "13 Registrar estado - Contactado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13 Registrar estado - Contactado": {
+      "main": [
+        [
+          {
+            "node": "14 Actualizar Airtable - Estado final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "16a Capturar error de validación": {
+      "main": [
+        [
+          {
+            "node": "16b Registrar en tabla Errores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "versionId": "1a2b3c4d5e6f7g8h",
+  "meta": {
+    "instanceId": "leadpilot-ai-automation-v1.0",
+    "templatesCount": 0
+  }
+}
