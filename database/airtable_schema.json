@@ -1,0 +1,310 @@
+{
+  "schema_version": "1.0",
+  "database": "LeadPilot AI",
+  "description": "Base de datos completa para automatización de gestión de leads",
+  "tables": [
+    {
+      "name": "Leads",
+      "id": "tblEx4UKF4j0bkVvr",
+      "description": "Registro principal de todos los leads capturados desde Gmail",
+      "fields": [
+        {
+          "name": "Lead ID",
+          "type": "autonumber",
+          "description": "Identificador único autogenerado",
+          "required": true
+        },
+        {
+          "name": "Nombre",
+          "type": "singleLineText",
+          "description": "Nombre detectado desde Gmail 'From' field",
+          "required": true
+        },
+        {
+          "name": "Email",
+          "type": "email",
+          "description": "Email del lead - clave para evitar duplicados",
+          "required": true,
+          "unique": true
+        },
+        {
+          "name": "Empresa",
+          "type": "singleLineText",
+          "description": "Empresa del lead si aparece en mensaje",
+          "required": false
+        },
+        {
+          "name": "Asunto",
+          "type": "singleLineText",
+          "description": "Asunto del email original",
+          "required": true
+        },
+        {
+          "name": "Mensaje Original",
+          "type": "multilineText",
+          "description": "Texto completo recibido del lead",
+          "required": true
+        },
+        {
+          "name": "Estado",
+          "type": "singleSelect",
+          "description": "Estado del procesamiento del lead",
+          "options": ["Pendiente IA", "Procesado por IA", "Aprobado por Humano", "Contactado", "Rechazado", "Error"],
+          "required": true,
+          "default": "Pendiente IA"
+        },
+        {
+          "name": "Score IA",
+          "type": "number",
+          "description": "Puntaje 0-100 asignado por OpenAI",
+          "required": false,
+          "min": 0,
+          "max": 100
+        },
+        {
+          "name": "Categoría",
+          "type": "singleSelect",
+          "description": "Clasificación del lead según IA",
+          "options": ["VIP", "Potencial", "Baja prioridad", "Soporte", "No calificado"],
+          "required": false
+        },
+        {
+          "name": "Prioridad",
+          "type": "singleSelect",
+          "description": "Nivel de prioridad para seguimiento",
+          "options": ["Alta", "Media", "Baja"],
+          "required": false
+        },
+        {
+          "name": "Thread ID",
+          "type": "singleLineText",
+          "description": "Gmail Thread ID para mantener conversación en hilo",
+          "required": true
+        },
+        {
+          "name": "Respuesta Sugerida",
+          "type": "multilineText",
+          "description": "Borrador de respuesta generado por OpenAI",
+          "required": false
+        },
+        {
+          "name": "Decision Humana",
+          "type": "singleSelect",
+          "description": "Decisión del aprobador humano",
+          "options": ["Pendiente", "Aprobado", "Rechazado"],
+          "required": false,
+          "default": "Pendiente"
+        },
+        {
+          "name": "Datos Faltantes",
+          "type": "multilineText",
+          "description": "Lista de campos que falta completar (JSON array)",
+          "required": false
+        },
+        {
+          "name": "Relación Cliente",
+          "type": "multipleRecordLinks",
+          "description": "Link a tabla Clientes (relación muchos a uno)",
+          "linkedTable": "Clientes",
+          "required": false
+        },
+        {
+          "name": "Fecha Creación",
+          "type": "createdTime",
+          "description": "Timestamp de creación automático",
+          "required": true
+        },
+        {
+          "name": "Fecha Actualización",
+          "type": "lastModifiedTime",
+          "description": "Timestamp de última modificación",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "Clientes",
+      "id": "tblCLIENTES_ID",
+      "description": "Registro de empresas/clientes únicos para evitar datos aislados",
+      "fields": [
+        {
+          "name": "Cliente ID",
+          "type": "autonumber",
+          "description": "Identificador único del cliente",
+          "required": true
+        },
+        {
+          "name": "Empresa",
+          "type": "singleLineText",
+          "description": "Nombre de la empresa",
+          "required": true,
+          "unique": true
+        },
+        {
+          "name": "Contacto Principal",
+          "type": "email",
+          "description": "Email del contacto principal",
+          "required": false
+        },
+        {
+          "name": "Industria",
+          "type": "singleSelect",
+          "description": "Sector industrial",
+          "options": ["Fintech", "SaaS", "E-commerce", "Consultoría", "Otro"],
+          "required": false
+        },
+        {
+          "name": "Leads Asociados",
+          "type": "multipleRecordLinks",
+          "description": "Link inverso a tabla Leads",
+          "linkedTable": "Leads",
+          "required": false
+        },
+        {
+          "name": "Monto Estimado",
+          "type": "currency",
+          "description": "Monto estimado del potencial negocio (USD)",
+          "required": false
+        },
+        {
+          "name": "Notas",
+          "type": "multilineText",
+          "description": "Notas adicionales sobre el cliente",
+          "required": false
+        },
+        {
+          "name": "Fecha Creación",
+          "type": "createdTime",
+          "description": "Timestamp de creación",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "Errores",
+      "id": "tblERRORES_ID",
+      "description": "Registro de todos los errores capturados por las rutas de error handling",
+      "fields": [
+        {
+          "name": "Error ID",
+          "type": "autonumber",
+          "description": "Identificador único del error",
+          "required": true
+        },
+        {
+          "name": "Origen",
+          "type": "singleLineText",
+          "description": "Nodo o etapa que originó el error (ej: 'OpenAI API', 'Validación Datos')",
+          "required": true
+        },
+        {
+          "name": "Tipo Error",
+          "type": "singleSelect",
+          "description": "Categoría del error",
+          "options": ["Datos Faltantes", "API OpenAI", "API Airtable", "API Gmail", "API Slack", "Validación", "Otro"],
+          "required": true
+        },
+        {
+          "name": "Detalle",
+          "type": "multilineText",
+          "description": "Descripción técnica detallada del error",
+          "required": true
+        },
+        {
+          "name": "Lead Email",
+          "type": "email",
+          "description": "Email del lead afectado (si aplica)",
+          "required": false
+        },
+        {
+          "name": "Estado",
+          "type": "singleSelect",
+          "description": "Estado del error",
+          "options": ["Pendiente corrección", "Reintentado", "Cerrado manual", "Resuelto"],
+          "required": true,
+          "default": "Pendiente corrección"
+        },
+        {
+          "name": "Timestamp",
+          "type": "dateTime",
+          "description": "Fecha y hora del error",
+          "required": true
+        },
+        {
+          "name": "Stack Trace",
+          "type": "multilineText",
+          "description": "Trace técnico completo del error (JSON o texto)",
+          "required": false
+        },
+        {
+          "name": "Acción Correctiva",
+          "type": "multilineText",
+          "description": "Acción tomada para resolver el error",
+          "required": false
+        },
+        {
+          "name": "Gravedad",
+          "type": "singleSelect",
+          "description": "Nivel de severidad",
+          "options": ["Crítica", "Alta", "Media", "Baja", "Información"],
+          "required": true,
+          "default": "Media"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "from": "Leads",
+      "to": "Clientes",
+      "type": "many_to_one",
+      "field_from": "Relación Cliente",
+      "field_to": "Leads Asociados",
+      "description": "Un cliente puede tener múltiples leads"
+    }
+  ],
+  "configuration": {
+    "automations": [
+      {
+        "name": "Auto-timestamp Leads",
+        "description": "Registra automáticamente fecha de creación y actualización"
+      },
+      {
+        "name": "Validación Email Único",
+        "description": "Previene duplicados de leads por email"
+      }
+    ],
+    "views": [
+      {
+        "name": "Leads Pendientes IA",
+        "table": "Leads",
+        "filter": "Estado = 'Pendiente IA'",
+        "sort": "Fecha Creación DESC"
+      },
+      {
+        "name": "Errores Sin Resolver",
+        "table": "Errores",
+        "filter": "Estado != 'Resuelto'",
+        "sort": "Timestamp DESC"
+      },
+      {
+        "name": "Leads Contactados",
+        "table": "Leads",
+        "filter": "Estado = 'Contactado'",
+        "sort": "Fecha Creación DESC"
+      }
+    ]
+  },
+  "integrations": {
+    "n8n": {
+      "trigger": "Airtable Table changes",
+      "actions": ["Create", "Update", "Read", "Search"]
+    },
+    "gmail": {
+      "sync": "Incoming emails create Leads records"
+    },
+    "openai": {
+      "update": "IA results update Score, Categoría, Respuesta Sugerida"
+    }
+  }
+}

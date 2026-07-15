@@ -1,1 +1,36 @@
-
+Tabla,Campo,Tipo,Descripción,Requerido,Opciones
+Leads,Lead ID,Autonumber,Identificador único autogenerado,Sí,N/A
+Leads,Nombre,Texto,Nombre detectado desde Gmail,Sí,N/A
+Leads,Email,Email,Email del lead - clave para evitar duplicados,Sí,N/A
+Leads,Empresa,Texto,Empresa del lead si aparece en mensaje,No,N/A
+Leads,Asunto,Texto,Asunto del email original,Sí,N/A
+Leads,Mensaje Original,Long Text,Texto completo recibido del lead,Sí,N/A
+Leads,Estado,Single Select,Estado del procesamiento del lead,Sí,Pendiente IA | Procesado por IA | Aprobado por Humano | Contactado | Rechazado | Error
+Leads,Score IA,Número,Puntaje 0-100 asignado por OpenAI,No,0-100
+Leads,Categoría,Single Select,Clasificación del lead según IA,No,VIP | Potencial | Baja prioridad | Soporte | No calificado
+Leads,Prioridad,Single Select,Nivel de prioridad para seguimiento,No,Alta | Media | Baja
+Leads,Thread ID,Texto,Gmail Thread ID para mantener conversación en hilo,Sí,N/A
+Leads,Respuesta Sugerida,Long Text,Borrador de respuesta generado por OpenAI,No,N/A
+Leads,Decision Humana,Single Select,Decisión del aprobador humano,No,Pendiente | Aprobado | Rechazado
+Leads,Datos Faltantes,Long Text,Lista de campos que falta completar (JSON array),No,N/A
+Leads,Relación Cliente,Link a Clientes,Link a tabla Clientes (relación muchos a uno),No,N/A
+Leads,Fecha Creación,Created Time,Timestamp de creación automático,Sí,N/A
+Leads,Fecha Actualización,Last Modified Time,Timestamp de última modificación,Sí,N/A
+Clientes,Cliente ID,Autonumber,Identificador único del cliente,Sí,N/A
+Clientes,Empresa,Texto,Nombre de la empresa,Sí,N/A
+Clientes,Contacto Principal,Email,Email del contacto principal,No,N/A
+Clientes,Industria,Single Select,Sector industrial,No,Fintech | SaaS | E-commerce | Consultoría | Otro
+Clientes,Leads Asociados,Link a Leads,Link inverso a tabla Leads,No,N/A
+Clientes,Monto Estimado,Moneda,Monto estimado del potencial negocio (USD),No,N/A
+Clientes,Notas,Long Text,Notas adicionales sobre el cliente,No,N/A
+Clientes,Fecha Creación,Created Time,Timestamp de creación,Sí,N/A
+Errores,Error ID,Autonumber,Identificador único del error,Sí,N/A
+Errores,Origen,Texto,Nodo o etapa que originó el error,Sí,N/A
+Errores,Tipo Error,Single Select,Categoría del error,Sí,Datos Faltantes | API OpenAI | API Airtable | API Gmail | API Slack | Validación | Otro
+Errores,Detalle,Long Text,Descripción técnica detallada del error,Sí,N/A
+Errores,Lead Email,Email,Email del lead afectado (si aplica),No,N/A
+Errores,Estado,Single Select,Estado del error,Sí,Pendiente corrección | Reintentado | Cerrado manual | Resuelto
+Errores,Timestamp,DateTime,Fecha y hora del error,Sí,N/A
+Errores,Stack Trace,Long Text,Trace técnico completo del error,No,N/A
+Errores,Acción Correctiva,Long Text,Acción tomada para resolver el error,No,N/A
+Errores,Gravedad,Single Select,Nivel de severidad,Sí,Crítica | Alta | Media | Baja | Información
